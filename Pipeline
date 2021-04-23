@@ -34,7 +34,8 @@ ls *.gtf > mergelist.txt
 stringtie mergelist.txt --merge -o data_merge.gtf
 
 #prepare files for downstream analysis --convert GTF file to txt with modified prepDE code from stringtie
-nano prepDE.py:
+nano prepDE.py
+#add the following to the prepDE.py file
  ```
   #!/bin/bash
   F=/data/fallinilab/
