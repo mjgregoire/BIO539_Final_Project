@@ -1,0 +1,111 @@
+#downloading the dataset
+wget https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039508/SRR1039508.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039509/SRR1039509.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039510/SRR1039510.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039511/SRR1039511.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039512/SRR1039512.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039513/SRR1039513.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039514/SRR1039514.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039515/SRR1039515.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039516/SRR1039516.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039517/SRR1039517.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039518/SRR1039518.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039519/SRR1039519.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039520/SRR1039520.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039521/SRR1039521.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039522/SRR1039522.1 https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-5/SRR1039523/SRR1039523.1
+
+#downloading SRA toolkit to convert SRA to fastq files
+wget https://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/2.11.0/sratoolkit.2.11.0-centos_linux64.tar.gz
+tar xzvf sratoolkit.2.11.0-centos_linux64.tar.gz #to unzip the file
+export PATH=$PATH:/data/fallinilab/sratoolkit.2.11.0-centos_linux64/bin #to install the toolkit
+vdb-config --interactive #to set-up the toolkit
+x #to exit the config
+
+#converting SRA to fastq files with SRA toolkit
+fasterq-dump --threads 3 --progress SRR*
+
+#checking the quality of the reads with fastqc
+module load FastQC/0.11.9-Java-11
+fastqc *.fastq
+
+#downloading the reference genome and its annotation
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/GRCh38.p13.genome.fa.gz
+gunzip GRCh38.p13.genome.fa.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/gencode.v37.chr_patch_hapl_scaff.basic.annotation.gtf.gz
+gunzip gencode.v37.chr_patch_hapl_scaff.basic.annotation.gtf.gz
+
+#building the reference genome
+module load STAR
+STAR --runThreadN 6 --runMode genomeGenerate --genomeDir /data/fallinilab/STAR_index/ --genomeFastaFiles /data/fallinilab/STAR_index/GRCh38.p13.genome.fa --sjdbGTFfile /data/fallinilab/STAR_index/gencode.v31.basic.annotation.gtf --sjdbOverhang 62 
+
+#align the reads to the reference genome
+STAR --runThreadN 4 --genomeDir /data/fallinilab/STAR_index/ --readFilesIn /data/fallinilab/*_1.fastq /data/fallinilab/raw_data/*_2.fastq --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts 
+
+#prepare files for downstream analysis --convert BAM to GTF files + merged GTF file
+stringtie * .bam -o /data/fallinilab/*.gtf 
+ls *.gtf > mergelist.txt
+stringtie mergelist.txt --merge -o data_merge.gtf
+
+#prepare files for downstream analysis --convert GTF file to txt with modified prepDE code from stringtie
+nano prepDE.py:
+ ```
+  #!/bin/bash
+  F=/data/fallinilab/
+  array=($(ls data_merge.gtf))
+  for i in ${array[ @ ]}; do
+	  echo "$(echo ${i}|sed "s/\..*//") $F/${i}" >> counts_list.txt
+  done
+
+  echo "STOP" $(date)
+  
+ python prepDE.py -i counts_list.txt
+ 
+#Convert the txt file to a csv file 
+sed 's/ \+/,/g' counts_list.txt > counts.csv
+ 
+#to test differential gene expression ->download csv files locally, upload to R-studio
+
+#Install and load the following packages in the R library
+BiocManager::install("DESeq2")
+library("DESeq2")
+library(ggplot2)
+library(tidyverse)
+
+#load the data in R 
+counts <- read.csv("~/Final_Project/counts.csv")
+metadata <- read.csv("https://4va.github.io/biodatasci/data/airway_metadata.csv") #the metadata is a csv that was created with the information for the detamethasone and control samples
+
+#check that the column names of counts (except for the first column which lists the ensgene) are the same as the IDs from the metadata column data
+#names(counts)[-1]
+#metadata$id
+#names(counts)[-1]==metadata$id
+all(names(counts)[-1]==metadata$id)
+
+#make variable for deseq
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex, 
+                              tidy=TRUE)
+#look at the output
+dds
+
+#run deseq and look at results
+dds <- DESeq(dds)
+sizeFactors(dds)
+dispersions(dds)
+results(dds)
+
+#summary of differential gene expression
+res <- results(dds, tidy=TRUE)
+summary(res)
+
+#plot one of the genes
+plotCounts(dds, gene="ENSG00000103196", intgroup="dex", returnData=TRUE) %>% 
+  ggplot(aes(dex, count)) + geom_boxplot(aes(fill=dex)) + scale_y_log10()
+  
+#sort by p value
+res <- res[order(res$padj),]
+head(res)
+
+#plot the top 6 results, 3 per row, 2 columns
+par(mfrow=c(2,3))
+
+plotCounts(dds, gene="ENSG00000152583", intgroup="dex")
+plotCounts(dds, gene="ENSG00000179094", intgroup="dex")
+plotCounts(dds, gene="ENSG00000116584", intgroup="dex")
+plotCounts(dds, gene="ENSG00000189221", intgroup="dex")
+plotCounts(dds, gene="ENSG00000120129", intgroup="dex")
+plotCounts(dds, gene="ENSG00000148175", intgroup="dex")
+
+# plot principal components analysis variance stabilization with vst
+vsdata <- vst(dds, blind=FALSE)
+plotPCA(vsdata, intgroup="dex")
+
+That concludes how far we're going to analyze this data!
