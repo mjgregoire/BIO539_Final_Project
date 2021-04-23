@@ -35,17 +35,19 @@ stringtie mergelist.txt --merge -o data_merge.gtf
 
 #prepare files for downstream analysis --convert GTF file to txt with modified prepDE code from stringtie
 nano prepDE.py
-#add the following to the prepDE.py file
- ```
-  #!/bin/bash
-  F=/data/fallinilab/
-  array=($(ls data_merge.gtf))
-  for i in ${array[ @ ]}; do
-	  echo "$(echo ${i}|sed "s/\..*//") $F/${i}" >> counts_list.txt
-  done
 
-  echo "STOP" $(date)
-  
+	#add the following to the prepDE.py file
+	 ```
+ 	 #!/bin/bash
+  	F=/data/fallinilab/
+  	array=($(ls data_merge.gtf))
+  	for i in ${array[ @ ]}; do
+	  	echo "$(echo ${i}|sed "s/\..*//") $F/${i}" >> counts_list.txt
+  	done
+
+  	echo "STOP" $(date)
+	
+  	#run the python script
  python prepDE.py -i counts_list.txt
  
 #Convert the txt file to a csv file 
