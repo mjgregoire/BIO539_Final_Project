@@ -3,6 +3,8 @@
 This project includes a pipeline for RNA seq data analysis from the SRA file raw reads stage to differential gene expression and principal component analysis in R. 
 The main software used in this pipeline are linux codes on the HPC, SRA toolkit, Fastqc, STAR, Stringtie, bash, python, R ->Deseq2, ggplot, tidyverse. 
 
+I have also uploaded to this repository my work/notes on this project as an R markdwon file (and it's pdf), as well as the final project essay as a word document.
+
 Here are the references I used when doing this project:
 1. Asthma Facts and Figures. Asthma and Allergy Foundation of America. Available from: https://www.aafa.org/asthma-facts/#:~:text=According%20to%20the%20Centers%20for,in%2013%20people%20have%20asthma.&text=More%20than%2025%20million%20Americans,age%2C%20sex%20and%20racial%20groups.
 2. Count-Based Differential Expression Analysis of RNA-seq Data. Available from: https://4va.github.io/biodatasci/r-rnaseq-airway.html#pca
